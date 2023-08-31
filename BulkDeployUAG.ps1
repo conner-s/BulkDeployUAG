@@ -32,10 +32,10 @@ Requires
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  #>
 
-#Requires -Version 7.0
-#Requires -RunAsAdministrator
+#Requires -Version 3.0
 
-param([string] $vCenterUser, [string] $vCenterPassword )
+
+param([string] $vCenterUser, [SecureString] $vCenterPassword )
 
 #region variables
 ################################################################################
@@ -221,6 +221,7 @@ function UpdateINI ($uag)
 	
 	if ($updatetarget) #Create custom target string
 	{
+		$vCenterPassword
 		$oldtarget = $uagini.General.target
 		#Write-Host ("Old Target : " + $oldtarget) -ForegroundColor Green
 		$atposition = $oldtarget.LastIndexOf('@')
@@ -314,7 +315,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 
 			Add-Type -AssemblyName 'PresentationFramework'
 
-
+			#Remove all jobs created if any lingered.
 			Get-Job | Remove-Job
 			$MaxThreads = 4
  			ForEach ($uag in $uaglist)
@@ -332,14 +333,10 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 					}
 				}
 			}
-			#Wait for all jobs to finish.
-			While ($(Get-Job -State Running).count -gt 0){
-				#Should get information on the jobs while they're running
-				foreach($job in Get-Job){
-					$info= Receive-Job -Id ($job.Id)
-					Write-Host $info
-				}
-				start-sleep 5
+			Get-Job | Wait-Job
+			#Get information from each job.
+			foreach($job in Get-Job){
+				$info= Receive-Job -Id ($job.Id)
 			}
 			#Remove all jobs created.
 			Get-Job | Remove-Job
