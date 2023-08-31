@@ -32,6 +32,9 @@ Requires
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  #>
 
+#Requires -Version 7.0
+#Requires -RunAsAdministrator
+
 param([string] $vCenterUser, [string] $vCenterPassword )
 
 #region variables
@@ -246,8 +249,8 @@ function UpdateINI ($uag)
 	return $RuntimeUAGFileName
 }
 
-function DeployUAG ($uag, $UAGFileName)
-{
+$DeployUAG = {
+	Param($uag, $UAGFileName)
 ################################################################################
 # Deploy the UAG using the settings file created                               #
 ################################################################################
@@ -310,6 +313,10 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 			Write-Host ("Demo                      : " + $demo) -ForegroundColor Green
 
 			Add-Type -AssemblyName 'PresentationFramework'
+
+
+			Get-Job | Remove-Job
+			$MaxThreads = 4
  			ForEach ($uag in $uaglist)
 			{
  				If ($selection.Contains($uag))
@@ -318,10 +325,24 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 					$RuntimeUAGFileName = UpdateINI $uag
 					If (!$demo) 
 					{
-						DeployUAG $uag $RuntimeUAGFileName
+						While ($(Get-Job -state running).count -ge $MaxThreads){
+							Start-Sleep -Milliseconds 3
+						}
+						Start-Job -ScriptBlock $DeployUAG -ArgumentList $uag, $RuntimeUAGFileName
 					}
 				}
 			}
+			#Wait for all jobs to finish.
+			While ($(Get-Job -State Running).count -gt 0){
+				#Should get information on the jobs while they're running
+				foreach($job in Get-Job){
+					$info= Receive-Job -Id ($job.Id)
+					Write-Host $info
+				}
+				start-sleep 5
+			}
+			#Remove all jobs created.
+			Get-Job | Remove-Job
 		} else { Write-Host ("No UAGs Selected") -ForegroundColor Yellow }
 	} else { Write-Host ("No OVA Image Selected") -ForegroundColor Yellow }
 } else { Write-Host ("Cancel Button Pressed") -ForegroundColor Red }
