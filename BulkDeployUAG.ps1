@@ -250,34 +250,6 @@ function UpdateINI ($uag)
 	return $RuntimeUAGFileName
 }
 
-$DeployUAG = {
-	Param($uag, $UAGFileName)
-################################################################################
-# Deploy the UAG using the settings file created                               #
-################################################################################
-	#Create parameters for command line
-	#$params = "-IniFile " + [char]34 + $UAGFileName + [char]34 + " " + $settings.Deployment.rootPwd + " " + $settings.Deployment.adminPwd + " " + $settings.Deployment.disableVerification + " " + $settings.Deployment.noSSLVerify + " " + $settings.Deployment.ceipEnabled + " " + $settings.Deployment.awAPIServerPwd + " " + $settings.Deployment.awTunnelGatewayAPIServerPwd + " " + $settings.Deployment.awTunnelProxyAPIServerPwd + " " + $settings.Deployment.awCGAPIServerPwd + " " + $settings.Deployment.awSEGAPIServerPwd  + " " + $settings.Deployment.newAdminUserPwd
-	#Write-Host ("Parameters                : " + $params) -ForegroundColor Yellow
-	#convert params to $scriptParameters splat
-	$scriptParameters = @{
-		iniFile = $UAGFileName
-		rootPwd = $settings.Deployment.rootPwd
-		adminPwd = $settings.Deployment.adminPwd
-		DisableVerification = $settings.Deployment.disableVerification
-		NoSSLVerify = $settings.Deployment.noSSLVerify
-		CeipEnabled = $settings.Deployment.ceipEnabled
-		AwAPIServerPwd = $settings.Deployment.awAPIServerPwd
-		AwTunnelGatewayAPIServerPwd = $settings.Deployment.awTunnelGatewayAPIServerPwd
-		AwTunnelProxyAPIServerPwd = $settings.Deployment.awTunnelProxyAPIServerPwd
-		AwCGAPIServerPwd = $settings.Deployment.awCGAPIServerPwd
-		AwSEGAPIServerPwd = $settings.Deployment.awSEGAPIServerPwd
-		NewAdminUserPwd = $settings.Deployment.newAdminUserPwd
-	}
-	#Call the uagdeploy script passing the setting file just created
-	Write-Host ("Calling uagdeploy  for    : " + $uag) -ForegroundColor Yellow	
-	#Invoke-Expression -Command "& $uagdeployscript $params" 
-	& ./uagdeploy.ps1 @scriptParameters
-}
 
 #region main
 ################################################################################
@@ -329,7 +301,9 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 			Write-Host ("Demo                      : " + $demo) -ForegroundColor Green
 
 			Add-Type -AssemblyName 'PresentationFramework'
-
+            #Create an arraylist to hold the jobs
+            $jobarray = New-Object System.Collections.ArrayList
+            $jobCount = 0 #Create a counter for the jobs
 			#Remove all jobs created if any lingered.
 			Get-Job | Remove-Job
 			$MaxThreads = 4
@@ -344,13 +318,35 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 						#Keep starting jobs until we reach the maximum number of threads.
 						if ($(Get-Job -state running).count -lt $MaxThreads)
 						{
-							Start-Job -ScriptBlock $DeployUAG -ArgumentList $uag, $RuntimeUAGFileName
+
+                            $scriptParameters = @{
+                                iniFile = $RuntimeUAGFileName
+                                rootPwd = $settings.Deployment.rootPwd
+                                adminPwd = $settings.Deployment.adminPwd
+                                DisableVerification = $settings.Deployment.disableVerification
+                                NoSSLVerify = $settings.Deployment.noSSLVerify
+                                CeipEnabled = $settings.Deployment.ceipEnabled
+                                AwAPIServerPwd = $settings.Deployment.awAPIServerPwd
+                                AwTunnelGatewayAPIServerPwd = $settings.Deployment.awTunnelGatewayAPIServerPwd
+                                AwTunnelProxyAPIServerPwd = $settings.Deployment.awTunnelProxyAPIServerPwd
+                                AwCGAPIServerPwd = $settings.Deployment.awCGAPIServerPwd
+                                AwSEGAPIServerPwd = $settings.Deployment.awSEGAPIServerPwd
+                                NewAdminUserPwd = $settings.Deployment.newAdminUserPwd
+                            }
+                            #Needs absolute path to script, as opposed to relative path
+                            [string]$path = Get-Location
+                            $path += "\uagdeploy.ps1"
+							$job = Start-Job -ScriptBlock ([scriptblock]::create("&'$path'  $(&{$args}@scriptParameters)"))
+                            $jobarray.Add($job)
+                            $jobarray
+                            $jobCount++
 						} else {
 							Wait-Job
 						}
 					}
 				}
 			}
+            #TODO load a new form with tabs for each thread and receive job on them to show progress and pump out the output with Receive-Job on a timer until each job completes.
 			#Remove all jobs created.
 			Get-Job | Remove-Job
 		} else { Write-Host ("No UAGs Selected") -ForegroundColor Yellow }
