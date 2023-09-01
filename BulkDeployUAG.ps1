@@ -260,9 +260,9 @@ $DeployUAG = {
 	#Write-Host ("Parameters                : " + $params) -ForegroundColor Yellow
 	#convert params to $scriptParameters splat
 	$scriptParameters = @{
-		IniFile = $UAGFileName
-		RootPwd = $settings.Deployment.rootPwd
-		AdminPwd = $settings.Deployment.adminPwd
+		iniFile = $UAGFileName
+		rootPwd = $settings.Deployment.rootPwd
+		adminPwd = $settings.Deployment.adminPwd
 		DisableVerification = $settings.Deployment.disableVerification
 		NoSSLVerify = $settings.Deployment.noSSLVerify
 		CeipEnabled = $settings.Deployment.ceipEnabled
