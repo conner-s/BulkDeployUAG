@@ -333,10 +333,13 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 					}
 				}
 			}
-			Get-Job | Wait-Job
-			#Get information from each job.
-			foreach($job in Get-Job){
-				$info= Receive-Job -Id ($job.Id)
+			while($(Get-Job -state running).count -gt 0){
+				Start-Sleep 3
+				write-host ("Jobs Running : " + $(Get-Job -state running).count) -ForegroundColor Green
+				#last output of each job
+				Get-Job | Receive-Job
+				Start-Sleep 3
+				Clear-Host
 			}
 			#Remove all jobs created.
 			Get-Job | Remove-Job
