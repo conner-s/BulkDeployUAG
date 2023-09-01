@@ -349,6 +349,7 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
             #TODO load a new form with tabs for each thread and receive job on them to show progress and pump out the output with Receive-Job on a timer until each job completes.
 			#Remove all jobs created.
 			Get-Job | Remove-Job
+>>>>>>> Stashed changes
 		} else { Write-Host ("No UAGs Selected") -ForegroundColor Yellow }
 	} else { Write-Host ("No OVA Image Selected") -ForegroundColor Yellow }
 } else { Write-Host ("Cancel Button Pressed") -ForegroundColor Red }
