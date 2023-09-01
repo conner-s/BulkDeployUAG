@@ -256,12 +256,27 @@ $DeployUAG = {
 # Deploy the UAG using the settings file created                               #
 ################################################################################
 	#Create parameters for command line
-	$params = "-IniFile " + [char]34 + $UAGFileName + [char]34 + " " + $settings.Deployment.rootPwd + " " + $settings.Deployment.adminPwd + " " + $settings.Deployment.disableVerification + " " + $settings.Deployment.noSSLVerify + " " + $settings.Deployment.ceipEnabled + " " + $settings.Deployment.awAPIServerPwd + " " + $settings.Deployment.awTunnelGatewayAPIServerPwd + " " + $settings.Deployment.awTunnelProxyAPIServerPwd + " " + $settings.Deployment.awCGAPIServerPwd + " " + $settings.Deployment.awSEGAPIServerPwd  + " " + $settings.Deployment.newAdminUserPwd
-	Write-Host ("Parameters                : " + $params) -ForegroundColor Yellow
-	
+	#$params = "-IniFile " + [char]34 + $UAGFileName + [char]34 + " " + $settings.Deployment.rootPwd + " " + $settings.Deployment.adminPwd + " " + $settings.Deployment.disableVerification + " " + $settings.Deployment.noSSLVerify + " " + $settings.Deployment.ceipEnabled + " " + $settings.Deployment.awAPIServerPwd + " " + $settings.Deployment.awTunnelGatewayAPIServerPwd + " " + $settings.Deployment.awTunnelProxyAPIServerPwd + " " + $settings.Deployment.awCGAPIServerPwd + " " + $settings.Deployment.awSEGAPIServerPwd  + " " + $settings.Deployment.newAdminUserPwd
+	#Write-Host ("Parameters                : " + $params) -ForegroundColor Yellow
+	#convert params to $scriptParameters splat
+	$scriptParameters = @{
+		IniFile = $UAGFileName
+		RootPwd = $settings.Deployment.rootPwd
+		AdminPwd = $settings.Deployment.adminPwd
+		DisableVerification = $settings.Deployment.disableVerification
+		NoSSLVerify = $settings.Deployment.noSSLVerify
+		CeipEnabled = $settings.Deployment.ceipEnabled
+		AwAPIServerPwd = $settings.Deployment.awAPIServerPwd
+		AwTunnelGatewayAPIServerPwd = $settings.Deployment.awTunnelGatewayAPIServerPwd
+		AwTunnelProxyAPIServerPwd = $settings.Deployment.awTunnelProxyAPIServerPwd
+		AwCGAPIServerPwd = $settings.Deployment.awCGAPIServerPwd
+		AwSEGAPIServerPwd = $settings.Deployment.awSEGAPIServerPwd
+		NewAdminUserPwd = $settings.Deployment.newAdminUserPwd
+	}
 	#Call the uagdeploy script passing the setting file just created
 	Write-Host ("Calling uagdeploy  for    : " + $uag) -ForegroundColor Yellow	
-	Invoke-Expression -Command "& $uagdeployscript $params"
+	#Invoke-Expression -Command "& $uagdeployscript $params" 
+	& ./uagdeploy.ps1 @scriptParameters
 }
 
 #region main
@@ -272,7 +287,7 @@ Clear-Host
 
 #Check the settings file exists
 if (!(Test-path $SettingsFile)) {
-	WriteErrorString "Error: Configuration file ($iniFile) not found."
+	Write-Error "Error: Configuration file ($iniFile) not found."
 	Exit
 }
 #Import settings and apply to the variables
@@ -289,7 +304,7 @@ if (!(Test-path $runtimefolder)) {
 $global:ovafolder		= $settings.Files.ovafolder
 $global:uagdeployscript	= $settings.Files.uagdeployscript
 if (!(Test-path $uagdeployscript)) {
-	WriteErrorString "Error: UAG Deploy ps1 script ($uagdeployscript) not found."
+	Write-Error "Error: UAG Deploy ps1 script ($uagdeployscript) not found."
 	Exit
 }
 If ($settings.Controls.updatetarget -eq "Yes") { $global:updatetarget = $True } else { $global:updatetarget = $False }
@@ -326,19 +341,15 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK)
 					$RuntimeUAGFileName = UpdateINI $uag
 					If (!$demo) 
 					{
-						While ($(Get-Job -state running).count -ge $MaxThreads){
-							Start-Sleep -Milliseconds 3
+						#Keep starting jobs until we reach the maximum number of threads.
+						if ($(Get-Job -state running).count -lt $MaxThreads)
+						{
+							Start-Job -ScriptBlock $DeployUAG -ArgumentList $uag, $RuntimeUAGFileName
+						} else {
+							Wait-Job
 						}
-						Start-Job -ScriptBlock $DeployUAG -ArgumentList $uag, $RuntimeUAGFileName
 					}
 				}
-			}
-			while($(Get-Job -state running).count -gt 0){
-				write-host ("Jobs Running : " + $(Get-Job -state running).count) -ForegroundColor Green
-				#last output of each job
-				Get-Job | Receive-Job
-				Start-Sleep 3
-				Clear-Host
 			}
 			#Remove all jobs created.
 			Get-Job | Remove-Job
